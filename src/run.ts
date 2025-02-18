@@ -1,9 +1,14 @@
+import 'dotenv/config';
 import * as fs from 'fs/promises';
 import * as readline from 'readline';
 
 import { deepResearch, writeFinalReport } from './deep-research';
 import { generateFeedback } from './feedback';
 import { OutputManager } from './output-manager';
+
+// Load environment variables from .env.local if it exists
+import { config } from 'dotenv';
+config({ path: '.env.local' });
 
 const output = new OutputManager();
 
