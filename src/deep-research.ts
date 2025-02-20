@@ -34,12 +34,18 @@ type ResearchResult = {
 // increase this if you have higher API rate limits
 const ConcurrencyLimit = 2;
 
-// Initialize Firecrawl with optional API key and optional base url
+let firecrawl: FirecrawlApp;
 
-const firecrawl = new FirecrawlApp({
-  apiKey: process.env.FIRECRAWL_KEY ?? '',
-  apiUrl: process.env.FIRECRAWL_BASE_URL,
-});
+function initializeFirecrawl() {
+  if (!firecrawl) {
+    console.log('Initializing Firecrawl with key:', process.env.FIRECRAWL_KEY ? '[KEY PRESENT]' : '[KEY MISSING]');
+    firecrawl = new FirecrawlApp({
+      apiKey: process.env.FIRECRAWL_KEY ?? '',
+      apiUrl: process.env.FIRECRAWL_BASE_URL,
+    });
+  }
+  return firecrawl;
+}
 
 // take en user query, return a list of SERP queries
 async function generateSerpQueries({
@@ -175,6 +181,9 @@ export async function deepResearch({
   visitedUrls?: string[];
   onProgress?: (progress: ResearchProgress) => void;
 }): Promise<ResearchResult> {
+  // Initialize Firecrawl here, after env vars are loaded
+  initializeFirecrawl();
+
   const progress: ResearchProgress = {
     currentDepth: depth,
     totalDepth: depth,
