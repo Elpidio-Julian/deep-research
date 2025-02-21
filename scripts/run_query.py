@@ -1,6 +1,8 @@
 import asyncio
 import sys
 import os
+import shutil
+from pathlib import Path
 from providers.perplexity import PerplexityProvider
 from models.query import ResearchQuery
 
@@ -12,6 +14,13 @@ async def main(query_str: str):
         # Initialize provider
         provider = PerplexityProvider()
         await provider.setup()
+        
+        # Set up fixed output path
+        output_path = Path('perplexity-output.md')
+        
+        # Remove existing output file if it exists
+        if output_path.exists():
+            output_path.unlink()
         
         # Authenticate
         credentials = {
@@ -42,10 +51,13 @@ async def main(query_str: str):
             print("-" * 80)
             print(response_data['markdown'])
             print("-" * 80)
-            print(f"\nMarkdown file saved to: {response_data['file_path']}")
             
+            # Copy the downloaded file to our fixed location
+            shutil.copy2(response_data['file_path'], output_path)
+            
+            print(f"\nMarkdown file saved to: {output_path}")
             # Print just the file path for the TypeScript process
-            print(response_data['file_path'])
+            print(output_path)
         else:
             print("\nFailed to get response")
         
