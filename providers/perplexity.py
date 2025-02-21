@@ -173,52 +173,54 @@ class PerplexityProvider(BaseProvider):
             downloads_dir.mkdir(exist_ok=True)
             await self.page.set_download_path(downloads_dir)
             
-            # 2. Wait for response with periodic attempts
+            # 2. Wait for response to complete by checking URL changes
             start_time = time.time()
             timeout_seconds = 420  # 7 minutes
-            retry_interval = 30  # Wait 30 seconds between attempts
+            check_interval = 8  # Check every 8 seconds
             
-            print("Starting response gathering process...")
+            print("Waiting for response to complete...")
             
             while time.time() - start_time < timeout_seconds:
+                current_url = await self.page.evaluate("window.location.href")
                 elapsed = int(time.time() - start_time)
-                print(f"\nAttempting export process at {elapsed}s...")
                 
-                # Try the export flow
-                export_button = await self.page.find("Export", best_match=True)
-                if export_button:
-                    print("Found export button, clicking...")
-                    await export_button.click()
-                    await self.page.sleep(2)
+                # If URL no longer contains new?q=pending, response is complete
+                if "new?q=pending" not in current_url:
+                    print(f"\nResponse completed after {elapsed}s, attempting to export...")
+                    await self.page.sleep(2)  # Small delay to ensure UI is ready
                     
-                    markdown_option = await self.page.find("Markdown", best_match=True)
-                    if markdown_option:
-                        print("Found Markdown option, clicking...")
-                        await markdown_option.click()
-                        await self.page.sleep(3)
+                    # Try the export flow
+                    export_button = await self.page.find("Export", best_match=True)
+                    if export_button:
+                        print("Found export button, clicking...")
+                        await export_button.click()
+                        await self.page.sleep(2)
                         
-                        # Check for markdown files
-                        markdown_files = list(downloads_dir.glob("*.md"))
-                        if markdown_files:
-                            latest_file = max(markdown_files, key=lambda x: x.stat().st_ctime)
-                            file_time = latest_file.stat().st_ctime
+                        markdown_option = await self.page.find("Markdown", best_match=True)
+                        if markdown_option:
+                            print("Found Markdown option, clicking...")
+                            await markdown_option.click()
+                            await self.page.sleep(3)
                             
-                            print(f"Found latest file: {latest_file}")
-                            print(f"File time: {time.ctime(file_time)}")
-                            print(f"Process start time: {time.ctime(start_time)}")
-                            
-                            if file_time > start_time:
-                                print("Found new markdown file, reading content...")
-                                content = latest_file.read_text(encoding='utf-8')
-                                return {
-                                    'markdown': content,
-                                    'file_path': str(latest_file)
-                                }
-                            else:
-                                print("File is older than process start, will retry after delay...")
+                            # Check for markdown files
+                            markdown_files = list(downloads_dir.glob("*.md"))
+                            if markdown_files:
+                                latest_file = max(markdown_files, key=lambda x: x.stat().st_ctime)
+                                file_time = latest_file.stat().st_ctime
+                                
+                                if file_time > start_time:
+                                    print("Successfully downloaded and read markdown file")
+                                    content = latest_file.read_text(encoding='utf-8')
+                                    return {
+                                        'markdown': content,
+                                        'file_path': str(latest_file)
+                                    }
                 
-                print(f"Waiting {retry_interval} seconds before next attempt...")
-                await self.page.sleep(retry_interval)
+                # Log progress every 30 seconds
+                if elapsed % 30 == 0:
+                    print(f"Waiting for response... ({elapsed}s)")
+                
+                await self.page.sleep(check_interval)
             
             raise TimeoutError(f"Response did not complete within timeout period ({timeout_seconds} seconds)")
                 

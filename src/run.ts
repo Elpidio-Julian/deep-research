@@ -31,23 +31,13 @@ function askQuestion(query: string): Promise<string> {
 }
 
 // run the agent
-async function run() {
+async function run(query?: string) {
   // Get initial query
-  const initialQuery = await askQuestion('What would you like to research? ');
+  const initialQuery = query || await askQuestion('What would you like to research? ');
 
-  // Get breath and depth parameters
-  const breadth =
-    parseInt(
-      await askQuestion(
-        'Enter research breadth (recommended 2-10, default 4): ',
-      ),
-      10,
-    ) || 4;
-  const depth =
-    parseInt(
-      await askQuestion('Enter research depth (recommended 1-5, default 2): '),
-      10,
-    ) || 2;
+  // Get breath and depth parameters with defaults
+  const breadth = 4;  // default breadth
+  const depth = 2;    // default depth
 
   log(`Creating research plan...`);
 
@@ -56,16 +46,12 @@ async function run() {
     query: initialQuery,
   });
 
-  log(
-    '\nTo better understand your research needs, please answer these follow-up questions:',
-  );
-
-  // Collect answers to follow-up questions
-  const answers: string[] = [];
-  for (const question of followUpQuestions) {
-    const answer = await askQuestion(`\n${question}\nYour answer: `);
-    answers.push(answer);
-  }
+  // When query is provided, use default answers to keep it non-interactive
+  const answers = query 
+    ? followUpQuestions.map(() => "Proceed with default approach") 
+    : await Promise.all(followUpQuestions.map(async (question) => {
+        return await askQuestion(`\n${question}\nYour answer: `);
+      }));
 
   // Combine all information for deep research
   const combinedQuery = `
@@ -75,7 +61,6 @@ ${followUpQuestions.map((q: string, i: number) => `Q: ${q}\nA: ${answers[i]}`).j
 `;
 
   log('\nResearching your topic...');
-
   log('\nStarting research with progress tracking...\n');
   
   const { learnings, visitedUrls } = await deepResearch({
@@ -88,9 +73,7 @@ ${followUpQuestions.map((q: string, i: number) => `Q: ${q}\nA: ${answers[i]}`).j
   });
 
   log(`\n\nLearnings:\n\n${learnings.join('\n')}`);
-  log(
-    `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
-  );
+  log(`\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`);
   log('Writing final report...');
 
   const report = await writeFinalReport({
@@ -107,4 +90,8 @@ ${followUpQuestions.map((q: string, i: number) => `Q: ${q}\nA: ${answers[i]}`).j
   rl.close();
 }
 
-run().catch(console.error);
+// If run directly, check for command line argument
+if (require.main === module) {
+  const query = process.argv[2];
+  run(query);
+}
