@@ -1,5 +1,8 @@
 import { runPythonQuery } from './pythonRunner';
 import { spawn } from 'child_process';
+import { processDocs } from "../markdown-tools/combine-markdown-docs";
+import fs from "fs/promises";
+import path from "path";
 
 async function runDeepResearch(query: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -43,8 +46,49 @@ async function main() {
     console.log('Both providers have completed successfully!');
     console.log('Output files:');
     console.log(`1. Perplexity: ${perplexityOutputPath}`);
-    console.log('2. Deep Research: ./output.md');
+    console.log('2. Deep Research: output.md');
+
+    // Step 3: Combine output files using the combine-markdown-docs tool
+    console.log('Step 3: Combining output files...\n');
     
+    // Log file existence checks
+    console.log('Checking input files...');
+    console.log('Current working directory:', process.cwd());
+    
+    const rootDir = process.cwd();
+    const perplexityPath = path.join(rootDir, 'perplexity-output.md');
+    const deepResearchPath = path.join(rootDir, 'output.md');
+    const combinedOutputPath = path.join(rootDir, 'combined_output.md');
+    
+    try {
+      await fs.access(perplexityPath);
+      console.log(`✓ Found ${perplexityPath}`);
+    } catch (e) {
+      throw new Error(`Could not find ${perplexityPath} in directory ${rootDir}`);
+    }
+    
+    try {
+      await fs.access(deepResearchPath);
+      console.log(`✓ Found ${deepResearchPath}`);
+    } catch (e) {
+      throw new Error(`Could not find ${deepResearchPath} in directory ${rootDir}`);
+    }
+
+    console.log('Starting document combination process...');
+    console.log(`Combining:\n1. ${perplexityPath}\n2. ${deepResearchPath}`);
+    
+    // Add more detailed logging around the processDocs call
+    console.log('Calling processDocs...');
+    const combined = await processDocs(
+      perplexityPath,
+      deepResearchPath
+    );
+    console.log('Received response from processDocs');
+    
+    console.log('Writing combined output...');
+    await fs.writeFile(combinedOutputPath, combined);
+    console.log(`✓ Combined output created at: ${combinedOutputPath}`);
+
   } catch (error) {
     console.error('\nResearch process failed:', error instanceof Error ? error.message : String(error));
     process.exit(1);
